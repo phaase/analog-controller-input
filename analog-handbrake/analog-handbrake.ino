@@ -21,9 +21,6 @@
  * controller values (e.g. a signal with linear mapping for an analog 
  * input signal of a games and a jump function mapping for a on/off signal. 
  *
- * This work is licensed under a Creative Commons 
- * Attribution-ShareAlike 4.0 International (CC BY-SA 4.0). 
- * https://creativecommons.org/licenses/by-sa/4.0/ 
  *
  */
 
