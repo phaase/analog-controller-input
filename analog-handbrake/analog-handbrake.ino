@@ -3,12 +3,13 @@
 /* Analog Controller Input for PC
  * ------------------ 
  *
- * Simulates an analog controller input by reading an analog value from a potentiometer 
- * and sending the value via the joystick library (based on the HID library) 
- * to the PC. Beside this the LED on the arduino blinks with a frequency 
+ * Realizes a gaming controller with one analog input value by reading 
+ * an analog value from a potentiometer and sending the value via the 
+ * joystick library (based on the HID library) to the PC.
+ * Beside this the LED on the arduino blinks with a frequency 
  * dependent on the current analog value.
  *
- * This can be mapped in games to an input function (e.g. as an analog
+ * The gaming controller input can be mapped in games to an input function (e.g. as an analog
  * handbrake in games like Dirt Rally, Dirt 4, Asseto Corsa, ...)
  * 
  * Based on the idea of AMSTUDIO 
@@ -16,13 +17,19 @@
  *
  * Works with Arduino Leonardo and Arduino/Genuino Micro.
  *
- * Currently only one signal is send to PC. It might be useful
- * to send the analog value with different mappings as independent
- * controller values (e.g. a signal with linear mapping for an analog 
- * input signal of a games and a jump function mapping for a on/off signal. 
  *
+ * This work is licensed under a Creative Commons 
+ * Attribution-ShareAlike 4.0 International (CC BY-SA 4.0). 
+ * https://creativecommons.org/licenses/by-sa/4.0/ 
  *
  */
+
+/* Use this to print out the analog and derived digital values to the serial monitor.
+ * Use the digital values for calibration by setting minValue and maxValue below. 
+ * Do not use this mode in regular use, since the print commands will slow down
+ * the reaction significantly.
+ */
+//#define CALIBRATION_MODE
 
 /* Use this value to adapt to the actual used range of analog value (e.g. to adapt
  *  to physically available range of the poti), if the full range
@@ -31,17 +38,18 @@
  *  (e.g. if a brake should not start with the slightest movement of brake/value) 
  *  Analog input values lower than min are considered as min input.
 */
-const int minValue = 30; // min of the actual used poti range, if not blocked
+const int minValue = 295; // min of the actual usable poti range, if not blocked
 /*
  * Use to adapt to the maximal available range of analog value. Should be max 1023. 
  * Analog input values greater than max are handled as max input.
  */
-const int maxValue = 1000; // max of the actual used poti range
+const int maxValue = 900; // max of the actual usable poti range
 
 const int potPin = A0;    // select the input pin for the potentiometer
-const int changeThreshold = 1; //Can be used to reduce the frequency of send operations when the signal is unchanged
+const int changeTolerance = 1; //set and sent new value when change of value > changeTolerance
+const int ledPin = LED_BUILTIN;   // select the pin for the LED  
 
-// Create Joystick, disable anything than the brake which is used as handbrake
+// Create Joystick, disable anything than the brake which you can map in a game as whatever you want
 Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_JOYSTICK,
     0, // JOYSTICK_DEFAULT_BUTTON_COUNT
     0, // JOYSTICK_DEFAULT_HATSWITCH_COUNT,
@@ -56,14 +64,12 @@ Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_JOYSTICK,
     false, // includeAccelerator
     true, // includeBrake
     false); // includeSteering
-
-const int ledPin = LED_BUILTIN;   // select the pin for the LED    
-int value = 0;       // variable to store the value coming from the sensor
-int delayCounter = 0;
-int delayThreshold = 0;
+  
 int ledState = HIGH;
 int oldValue = 0;
-unsigned long previousMillisBlink = 0;        // will store last time LED was updated
+const unsigned long maxQuietTime = 5000; //time after that send operation is called (indirectly by calling setBrake) even when value has not changed
+unsigned long previousMillisBlink = 0; //stores last time LED was updated
+unsigned long previousMillisSend = 0; //stores last time send operation was called (indirectly by calling setBrake)
 
 void setup() {
   Serial.begin(9600);      // open the serial port at 9600 bps
@@ -71,45 +77,46 @@ void setup() {
   Joystick.setBrakeRange(minValue, maxValue);
   Joystick.begin();
   digitalWrite(ledPin, ledState);  // turn the ledPin on
-  oldValue = -abs(changeThreshold)-1; //force send the very first time
+  oldValue = -abs(changeTolerance)-1; //force send the very first time
 }
 
 void loop() {
-  
-  value = analogRead(potPin);    // read the value from the sensor
-  unsigned long currentMillisSend = millis();
-  //if(abs(value - oldValue) > 1 || currentMillisSend - previousMillisSend > sendInterval){
-  if(abs(value-oldValue) > changeThreshold){
-    //Serial.print("\nSend: ");
-    //Serial.print(value);
+
+  unsigned long currentMillis = millis();
+  int value = analogRead(potPin);    // read the value from the sensor
+  if((currentMillis-previousMillisSend > maxQuietTime) || (abs(value-oldValue) > changeTolerance)){
     Joystick.setBrake(value);
     oldValue = value;
-    //previousMillisSend = currentMillisSend;
+    previousMillisSend = currentMillis;
+    #ifdef CALIBRATION_MODE
+      Serial.print("Voltage: ");
+      Serial.print(value * (5.0 / 1023.0)); // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
+      Serial.print(" Digital value: ");
+      Serial.print(value);
+      Serial.print('\n');
+      Serial.flush();
+    #endif
   }
-  // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
-  // float voltage = val * (5.0 / 1023.0);
-  // Serial.print(voltage)
 
-  unsigned long currentMillisBlink = millis();
-  if((value < minValue) || (value > maxValue)){
-    // set the LED on to show out of range
+  if(value < minValue){
+    // set the LED off to show value below active range
     digitalWrite(ledPin, LOW);
+  }
+  else if(value > maxValue){
+    // set the LED on to show value above active range
+    digitalWrite(ledPin, HIGH);
   }
   else{
     unsigned long blinkInterval = maxValue - value;
-    if (currentMillisBlink - previousMillisBlink > blinkInterval) {
-      // save the last time you blinked the LED
-      previousMillisBlink = currentMillisSend;
-      
+    if (currentMillis - previousMillisBlink > blinkInterval) {
       // if the LED is off turn it on and vice-versa:
       if (ledState == LOW) {
         ledState = HIGH;
       } else {
         ledState = LOW;
       }
-
-      // set the LED with the ledState of the variable:
       digitalWrite(ledPin, ledState);
+      previousMillisBlink = currentMillis;
     }
   }
 }
