@@ -10,7 +10,7 @@
  * dependent on the current analog value.
  *
  * The gaming controller input can be mapped in games to an input function (e.g. as an analog
- * handbrake in games like Dirt Rally, Dirt 4, Asseto Corsa, ...)
+ * handbrake in games like Dirt Rally, Dirt 4, Assetto Corsa, ...)
  * 
  * Based on the idea of AMSTUDIO 
  * (https://github.com/AM-STUDIO/Analog-E-Brake)
