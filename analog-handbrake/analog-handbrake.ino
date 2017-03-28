@@ -31,8 +31,8 @@
  */
 //#define CALIBRATION_MODE
 
-/* Use this value to adapt to the actual used range of analog value (e.g. to adapt
- *  to physically available range of the poti), if the full range
+/* Use this value to adapt to the actual used range of output values (e.g. to adapt
+ *  to the physically available range of the poti), if the full range
  *  can be used (e.g. the poti slider is not physically blocked), the min value might be 
  *  choosen to be 0 - however, you might want to add some tolerance 
  *  (e.g. if a brake should not start with the slightest movement of brake/value) 
@@ -45,8 +45,18 @@ const int minValue = 295; // min of the actual usable poti range, if not blocked
  */
 const int maxValue = 900; // max of the actual usable poti range
 
-const int potPin = A0;    // select the input pin for the potentiometer
+/*  Use this to set the time in milli seconds after which a send operation is forced even if the value has not changed
+ *  or, to be more precisely, if the change is below changeTolerance (see below).
+ */
+const unsigned long maxQuietTime = 5000; //time after that send operation is called (indirectly by calling setBrake) even when value has not changed
+
+/* Use this to set the sensitiy of the controller. Setting the value to 0 means no tolerance = max sensity = max send operations, 
+ * setting to 1 means high sensity but some tolerance against jitter between two values and hence might reduce the frequency of 
+ * send operations.
+ */
 const int changeTolerance = 1; //set and sent new value when change of value > changeTolerance
+
+const int potPin = A0;    // select the input pin for the potentiometer
 const int ledPin = LED_BUILTIN;   // select the pin for the LED  
 
 // Create Joystick, disable anything than the brake which you can map in a game as whatever you want
@@ -67,7 +77,7 @@ Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_JOYSTICK,
   
 int ledState = HIGH;
 int oldValue = 0;
-const unsigned long maxQuietTime = 5000; //time after that send operation is called (indirectly by calling setBrake) even when value has not changed
+
 unsigned long previousMillisBlink = 0; //stores last time LED was updated
 unsigned long previousMillisSend = 0; //stores last time send operation was called (indirectly by calling setBrake)
 
